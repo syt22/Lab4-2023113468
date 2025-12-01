@@ -1,7 +1,8 @@
 name: tests
 
-on: push
-
+on:
+  push:
+  pull_request:       # 新增：当有 PR 时也触发测试
 jobs:
   run_tests:
     runs-on: ubuntu-latest
@@ -26,3 +27,22 @@ jobs:
 
       - name: Run tests with Maven
         run: mvn -B test --file pom.xml
+
+  auto_merge_pr:
+    needs: run_tests  # 等待测试完成
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && success()  # 只在 PR 并且测试成功时运行
+
+    steps:
+      - name: Checkout the PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}  # 检出当前 PR 分支
+
+      - name: Merge PR
+        uses: "peter-evans/merge-pull-request@v5" # 使用社区 Action 来合并 PR
+        with:
+          pull-request: ${{ github.event.pull_request.number }}  # 当前 PR 编号
+          merge-method: squash      # 合并方式，可以改成 'merge' 或 'rebase'
+          commit-title: "Auto-merged PR #${{ github.event.pull_request.number }} via GitHub Actions"  # 提交信息
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # 使用默认 token
